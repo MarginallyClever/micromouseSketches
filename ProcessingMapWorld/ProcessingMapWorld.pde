@@ -32,6 +32,11 @@ float px,py;  // position
 float fx,fy;  // facing
 float rx,ry;  // orthogonal to facing direction
 
+// for calculating distances
+long timeNow;
+long timeLast;
+boolean timeReceived=false;
+int left, right;  // wheel speeds
 
 void setup () {
   // set the window size:
@@ -70,16 +75,13 @@ void drawSensor(float angle,float distance) {
 }
 
 
-long t=0;
 void draw () {
-  long tnow = (long)(millis()*0.02);
-  px+= (tnow-t);
-  t=tnow;
-  
+  // draw the sensor values
   stroke(255,   0,   0);  drawSensor(  0,inByte0);
   stroke(255,   0, 255);  drawSensor( 45,inByte1);
   stroke(  0, 255,   0);  drawSensor(135,inByte2);
   stroke(255,   0, 255);  drawSensor(180,inByte3);
+  stroke(255, 255,   0);  point(px,py);  
 }
 
 
@@ -90,21 +92,43 @@ void serialEvent (Serial myPort) {
   if (inString != null) {
     // trim off any whitespace
     String[] tok = splitTokens(inString);
-    if (tok.length==4) {
-      inByte0 = float(tok[0]);
-      inByte1 = float(tok[1]);
-      inByte2 = float(tok[2]);
-      inByte3 = float(tok[3]);
+    if (tok.length==7) {
+      timeNow = int(tok[0]);
+      inByte0 = float(tok[1]);
+      inByte1 = float(tok[2]);
+      inByte2 = float(tok[3]);
+      inByte3 = float(tok[4]);
+      left = int(tok[5]);
+      right = int(tok[6]);
       
       inByte0 = map(inByte0, 0, 1023, 0, 100);
       inByte1 = map(inByte1, 0, 1023, 0, 100);
       inByte2 = map(inByte2, 0, 1023, 0, 100);
       inByte3 = map(inByte3, 0, 1023, 0, 100);
     } else {
-      inByte0=0;
-      inByte1=0;
-      inByte2=0;
-      inByte3=0;
+      return;
     }
   }
+
+  if(!timeReceived) {
+    timeLast = timeNow;
+    timeReceived=true;
+  }
+  println(timeNow-timeLast);
+  float dt = (float)(timeNow - timeLast) * 0.1f;
+  timeLast = timeNow;
+
+  
+  // turn left/right
+  float angle = (float)(left-right) * 100.0f * dt;
+  float tx = (fx * cos(radians(angle)) + fy*-sin(radians(angle)));
+  float ty = (fx * sin(radians(angle)) + fy* cos(radians(angle)));
+  float len = sqrt( tx*tx + ty*ty );
+  fx = tx/len;
+  fy = ty/len;
+  
+  // apply speed
+  float speed = (float)(left+right)*1000.0f * dt;
+  px += fx * speed;
+  py += fy * speed;
 }
