@@ -114,13 +114,12 @@ void serialEvent (Serial myPort) {
     timeLast = timeNow;
     timeReceived=true;
   }
-  println(timeNow-timeLast);
-  float dt = (float)(timeNow - timeLast) * 0.1f;
+  float dt = (float)(timeNow - timeLast) * 0.001f;
   timeLast = timeNow;
 
   
   // turn left/right
-  float angle = (float)(left-right) * 100.0f * dt;
+  float angle = (float)(left-right) * 1.0f * dt;
   float tx = (fx * cos(radians(angle)) + fy*-sin(radians(angle)));
   float ty = (fx * sin(radians(angle)) + fy* cos(radians(angle)));
   float len = sqrt( tx*tx + ty*ty );
@@ -128,7 +127,7 @@ void serialEvent (Serial myPort) {
   fy = ty/len;
   
   // apply speed
-  float speed = (float)(left+right)*1000.0f * dt;
+  float speed = (float)(left+right)*0.1f * dt;
   px += fx * speed;
   py += fy * speed;
 }
