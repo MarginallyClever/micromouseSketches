@@ -30,7 +30,6 @@ float inByte3 = 0;
 
 float px,py;  // position
 float fx,fy;  // facing
-float rx,ry;  // orthogonal to facing direction
 
 // for calculating distances
 long timeNow;
@@ -43,12 +42,13 @@ void setup () {
   size(800, 600);
   WINDOW_WIDTH = 800;
   WINDOW_HEIGHT = 600;
-  px = WINDOW_WIDTH/2;
-  py = WINDOW_HEIGHT/2;
-  fx = 0;
-  fy = -1;
-  rx = 1;
-  ry = 0;
+  px = WINDOW_WIDTH/2.0f;
+  py = WINDOW_HEIGHT/2.0f;
+  
+  fx = 1;
+  fy = 0;
+  
+  frameRate(30);
   
   // List all the available serial ports
   // if using Processing 2.1 or later, use Serial.printArray()
@@ -77,13 +77,16 @@ void drawSensor(float angle,float distance) {
 
 void draw () {
   // draw the sensor values
-  stroke(255,   0,   0);  drawSensor(  0,inByte0);
-  stroke(255,   0, 255);  drawSensor( 45,inByte1);
-  stroke(  0, 255,   0);  drawSensor(135,inByte2);
-  stroke(255,   0, 255);  drawSensor(180,inByte3);
+  stroke(255,   0,   0);  drawSensor( -90,inByte0);
+  stroke(  0, 255,   0);  drawSensor( -30,inByte1);
+  stroke(  0,   0, 255);  drawSensor(  30,inByte2);
+  stroke(127, 127, 127);  drawSensor(  90,inByte3);
+  // draw the robot's position
   stroke(255, 255,   0);  point(px,py);  
 }
 
+
+int skipSteps=3;
 
 void serialEvent (Serial myPort) {
   // get the ASCII string:
@@ -93,6 +96,10 @@ void serialEvent (Serial myPort) {
     // trim off any whitespace
     String[] tok = splitTokens(inString);
     if (tok.length==7) {
+      if(skipSteps>0) {
+        skipSteps--;
+        return;
+      }
       timeNow = int(tok[0]);
       inByte0 = float(tok[1]);
       inByte1 = float(tok[2]);
@@ -106,28 +113,54 @@ void serialEvent (Serial myPort) {
       inByte2 = map(inByte2, 0, 1023, 0, 100);
       inByte3 = map(inByte3, 0, 1023, 0, 100);
     } else {
+      println("***");
       return;
     }
   }
 
+  //print(timeReceived?"Y":"N");  print('\t');
+
+  if(timeNow==0) return;
+
+  if(inByte0<20) inByte0=0;
+  if(inByte1<20) inByte1=0;
+  if(inByte2<20) inByte2=0;
+  if(inByte3<20) inByte3=0;
+  
+  float dt;
   if(!timeReceived) {
     timeLast = timeNow;
-    timeReceived=true;
+    timeReceived = true;
+    dt = 0;
+  } else {
+    dt = (float)(timeNow - timeLast) * 0.001f;
   }
-  float dt = (float)(timeNow - timeLast) * 0.001f;
+  //print(timeLast);  print('\t');
+  //print(timeNow);  print('\t');
   timeLast = timeNow;
-
   
   // turn left/right
-  float angle = (float)(left-right) * 1.0f * dt;
+  float angle = (float)(left-right) * 10.0f * dt;
   float tx = (fx * cos(radians(angle)) + fy*-sin(radians(angle)));
   float ty = (fx * sin(radians(angle)) + fy* cos(radians(angle)));
   float len = sqrt( tx*tx + ty*ty );
-  fx = tx/len;
-  fy = ty/len;
+  fx = tx / len;
+  fy = ty / len;
   
   // apply speed
-  float speed = (float)(left+right)*0.1f * dt;
+  float speed = (float)(left+right) * ( 0.2f ) * dt;
   px += fx * speed;
   py += fy * speed;
+  
+  if( px > WINDOW_WIDTH ) px = WINDOW_WIDTH;
+  if( px < 0            ) px = 0;
+  if( py > WINDOW_HEIGHT) py = WINDOW_HEIGHT;
+  if( py < 0            ) py = 0;
+/*
+  print(dt);  print('\t');
+  print(px);  print('\t');
+  print(py);  print('\t');
+  print(angle);  print('\t');
+  print(speed);  print('\n');
+*/
 }
