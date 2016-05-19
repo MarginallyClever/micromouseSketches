@@ -23,8 +23,8 @@ void setup() {
   Serial.begin(57600);
   
   // prepare the wheels
-  left.attach(7);
-  right.attach(6);
+  left.attach(2);
+  right.attach(4);
 
   fullStop();
 

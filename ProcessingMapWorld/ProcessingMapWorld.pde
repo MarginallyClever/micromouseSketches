@@ -53,7 +53,9 @@ void setup () {
   // List all the available serial ports
   // if using Processing 2.1 or later, use Serial.printArray()
   String [] ports = Serial.list();
-  println(ports);
+  for(int i=0;i<ports.length;++i) {
+    println("Port "+i+": "+ports[i]);
+  }
 
   // I know that the first port in the serial list on my mac
   // is always my  Arduino, so I open Serial.list()[0].
