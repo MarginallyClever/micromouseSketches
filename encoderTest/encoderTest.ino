@@ -115,7 +115,7 @@ void thinkAndAct() {
   // Move wheels
   int driveTo;
   driveTo = ( encoderL - 180 ) / 2;  left .write( 90 + driveTo );
-  driveTo = ( encoderR - 180 ) / 2;  right.write( 90 + driveTo );
+  //driveTo = ( encoderR - 180 ) / 2;  right.write( 90 + driveTo );
 }
 
 
@@ -133,7 +133,7 @@ void reportToPC() {
 boolean readEncoders() {
   boolean ok = true;
   ok &= readEncoder(SENSOR_L_SDOUT,SENSOR_L_CSEL,SENSOR_L_CLK,encoderL);
-  ok &= readEncoder(SENSOR_R_SDOUT,SENSOR_R_CSEL,SENSOR_R_CLK,encoderR);
+  //ok &= readEncoder(SENSOR_R_SDOUT,SENSOR_R_CSEL,SENSOR_R_CLK,encoderR);
   return ok;
 }
 
