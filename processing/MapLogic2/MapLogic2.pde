@@ -25,15 +25,19 @@ MazeCell[] cells;
 MazeWall[] walls;
 
 Turtle turtle = new Turtle();
-Turtle [] history = new Turtle[256*4];  // probably enough?
+Turtle [] history = new Turtle[256];  // probably enough?
 int historyCount;
+
+int state=0;
+
+int walkCount;
 
 /**
  * build a list of walls in the maze, cells in the maze, and how they connect to each other.
  * @param out
  * @throws IOException
  */
-private void createMazeNow() {
+void createMazeNow() {
   // build the cells
   cells = new MazeCell[rows * columns];
 
@@ -120,24 +124,17 @@ private void createMazeNow() {
   currentCell = y * columns + x;
   
   wallIndex = findWallBetween(currentCell, currentCell+1);
-  assert (wallIndex != -1);
   walls[wallIndex].removed = true;
   wallIndex = findWallBetween(currentCell, currentCell+columns);
-  println(wallIndex);
-  assert (wallIndex != -1);
   walls[wallIndex].removed = true;
   wallIndex = findWallBetween(currentCell+columns, currentCell+columns+1);
-  println(wallIndex);
-  assert (wallIndex != -1);
   walls[wallIndex].removed = true;
   wallIndex = findWallBetween(currentCell+1, currentCell+columns+1);
-  println(wallIndex);
-  assert (wallIndex != -1);
   walls[wallIndex].removed = true;
 }
 
 
-private int chooseUnvisitedNeighbor(int currentCell) {
+int chooseUnvisitedNeighbor(int currentCell) {
   int x = cells[currentCell].x;
   int y = cells[currentCell].y;
 
@@ -172,7 +169,7 @@ private int chooseUnvisitedNeighbor(int currentCell) {
 }
 
 
-private void drawMaze() {
+void drawMaze() {
   ymin = 0;
   ymax = height;
   xmin = 0;
@@ -215,7 +212,11 @@ private void drawMaze() {
 }
 
 
-private int findWallBetween(int currentCell, int nextCell) {
+/**
+ * Find the index of the wall between two cells
+ * returns -1 if no wall is found (asking the impossible)
+ */
+int findWallBetween(int currentCell, int nextCell) {
   int i;
   for (i = 0; i < walls.length; ++i) {
     if (walls[i].cellA == currentCell || walls[i].cellA == nextCell) {
@@ -227,9 +228,10 @@ private int findWallBetween(int currentCell, int nextCell) {
 }
 
 
+
 void setup () {
   // set the window size:
-  size(256, 256);
+  size(512, 512);
 
   stroke(255,255,255);
   createMazeNow();
@@ -243,29 +245,61 @@ void setup () {
     history[i] = new Turtle();
   }
   historyCount=0;
+  addToHistory();
 }
+
 
 
 void draw() {
   // clear everything
   background(0);
   
-  stroke(255,255,255);
-  drawMaze();
+  color c1=color(0,0,255);
+  color c2=color(255,0,0);
+  color c3;
   
-  noStroke();
+  // draw history
+  float ax,ay;
+  for(int i=0;i<historyCount;++i) {
+    noStroke();
+    int cellNumber = getCellNumberAt(history[i].cellX,history[i].cellY);
+    ax = cells[cellNumber].x * cellW;
+    ay = cells[cellNumber].y * cellH;
+    
+    c3 = lerpColor(c1,c2,(float)i/(float)historyCount);
+    fill(c3);
+    rect(ax,ay,cellW,cellH);  
+    stroke(255,255,0);
+    float px = ax+cellW/2;
+    float py = ay+cellH/2;
+    float dx=0;
+    float dy=0;
   
-  fill(255,0,0);
+    switch(history[i].dir) {
+    default: dx = cellW/2; break; 
+    case  1: dy = cellH/2; break;
+    case  2: dx = -cellW/2; break;
+    case  3: dy = -cellH/2; break;
+    }
+    
+    line(px,
+         py,
+         px+dx,
+         py+dy);
+  }
+  
+  // draw turtle
   int cellNumber = getCurrentCellNumber();
-  float ax = cells[cellNumber].x * cellW;
-  float ay = cells[cellNumber].y * cellH;
-  rect(ax,ay,cellW,cellH);
+  ax = cells[cellNumber].x * cellW;
+  ay = cells[cellNumber].y * cellH;
   
-  stroke(255,255,0);
   float px = ax+cellW/2;
   float py = ay+cellH/2;
   float dx=0;
   float dy=0;
+
+  stroke(0,255,0);
+  ellipse(px,py,cellW/2,cellH/2);
   
   switch(turtle.dir) {
   default: dx = cellW/2; break; 
@@ -273,15 +307,23 @@ void draw() {
   case  2: dx = -cellW/2; break;
   case  3: dy = -cellH/2; break;
   }
-  
+  stroke(0,0,255);
   line(px,
        py,
        px+dx,
        py+dy);
+
+  // draw the maze
+  stroke(255,255,255);
+  drawMaze();
 }
 
 int getCurrentCellNumber() {
-  return turtle.cellY * columns + turtle.cellX;
+  return getCellNumberAt( turtle.cellX, turtle.cellY );
+}
+
+int getCellNumberAt(int x,int y) {
+  return y * columns + x;
 }
 
 
@@ -335,24 +377,18 @@ boolean thereIsAWallAhead() {
 
 void turnRight() {
   print("Turning right.  ");
-  turtle.dir++;
-  if(turtle.dir>3) turtle.dir=0;
+  turtle.dir = (turtle.dir+1)%4;
 }
 
 
 void turnLeft() {
   print("Turning left.  ");
-  turtle.dir--;
-  if(turtle.dir<0) turtle.dir=3;
+  turtle.dir = (turtle.dir+4-1)%4;
 }
 
 
 void stepForward() {
-  print("Advancing from (");
-  print(turtle.cellX);
-  print(',');
-  print(turtle.cellY);
-  print(") ");
+  print("Advancing ");
   
   switch(turtle.dir) {
   default:  print("north");   turtle.cellX++;  break;
@@ -360,19 +396,13 @@ void stepForward() {
   case  2:  print("south");   turtle.cellX--;  break;
   case  3:  print("west");    turtle.cellY--;  break;
   }
-  
 
-  print(" to (");
-  print(turtle.cellX);
-  print(',');
-  print(turtle.cellY);
-  print(") clipped to (");
-  
   if(turtle.cellX >= rows) turtle.cellX = rows-1;
   if(turtle.cellX <  0   ) turtle.cellX = 0;
   if(turtle.cellY >= columns) turtle.cellY = columns-1;
   if(turtle.cellY <  0      ) turtle.cellY = 0;
-     
+
+  print(" to (");
   print(turtle.cellX);
   print(',');
   print(turtle.cellY);
@@ -380,28 +410,112 @@ void stepForward() {
 }
 
 
-void walkTheMaze() {
-  println("Step start");
-  if(!thereIsAWallToTheRight()) {
-    println("No wall on the right.  ");
-    turnRight();
-    stepForward();
-  } else {
-    print("Wall on the right.  ");
-    if(!thereIsAWallAhead()) {
-      println("No wall ahead.  ");
-      stepForward();
-    } else {
-      println("Wall ahead.");
-      turnLeft();
+void addToHistory() {
+  history[historyCount].cellX = turtle.cellX;
+  history[historyCount].cellY = turtle.cellY;
+  history[historyCount].dir = turtle.dir;
+  historyCount++;
+}
+
+
+void pruneHistory(int findCell) {
+//  print("Finding ");
+//  println(findCell);
+  int i;
+  for(i = historyCount-2; i >= 0; --i) {
+    int cell = getCellNumberAt(history[i].cellX, history[i].cellY);
+//    print(cell);
+//    print(" ");
+    if(cell == findCell) {
+//      println(" found.");
+      historyCount = i+1;
+      return;
     }
   }
+  
+//  println();
+}
 
-  println("\nStep end.");
+
+void searchMaze() {
+  if(!thereIsAWallToTheRight()) {
+    print("No wall on the right.  ");
+    turnRight();
+  }
+    
+  if(!thereIsAWallAhead()) {
+    print("No wall ahead.  ");
+    stepForward();
+    addToHistory();
+  } else {
+    print("Wall ahead.  ");
+    turnLeft();
+  }
+  println();
+  
+  pruneHistory(getCurrentCellNumber());
+  
+  if( ( turtle.cellX == 7 || turtle.cellX == 8 ) &&
+      ( turtle.cellY == 7 || turtle.cellY == 8 ) )
+  {
+    println("** CENTER FOUND.  GOING HOME **");
+    state=1;
+    walkCount = historyCount;
+  }
+  
   redraw();
 }
 
 
+void turnToFace(int dir) {
+  if(dir == turtle.dir) {
+    // facing that way already
+    return;
+  }
+
+  if(dir == turtle.dir+2 || dir == turtle.dir-2 ) {
+    // 180
+    turnRight();
+    turnRight();
+    return;
+  }
+  if(dir == (turtle.dir+4-1)%4) turnLeft();
+  if(dir == (turtle.dir  +1)%4) turnRight();
+}
+
+
+void goHome() {
+  walkCount--;
+  turnToFace((history[walkCount].dir+2)%4);  // face the opposite of the history
+  stepForward();
+  println();
+  
+  if(walkCount==0) {
+    println("** HOME FOUND.  GOING TO CENTER **");
+    state=2;
+    walkCount=1;
+  }
+}
+
+
+void goToCenter() {
+  turnToFace(history[walkCount].dir);  // face the opposite of the history
+  stepForward();
+  println();
+
+  walkCount++;
+  
+  if(walkCount==historyCount) {
+    println("** CENTER FOUND.  GOING HOME **");
+    state=1;
+  }
+}
+
+
 void keyPressed() {
-  walkTheMaze();  
+  switch(state) {
+  default: searchMaze();  break;
+  case 1: goHome();  break;
+  case 2: goToCenter();  break; 
+  }
 }
