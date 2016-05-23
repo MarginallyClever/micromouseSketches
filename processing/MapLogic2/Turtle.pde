@@ -101,8 +101,8 @@ void drawTurtle() {
   switch(turtle.dir) {
   case NORTH: dx =  cellW/2; break; 
   case  EAST: dy =  cellH/2; break;
-  case  WEST: dx = -cellW/2; break;
-  case SOUTH: dy = -cellH/2; break;
+  case SOUTH: dx = -cellW/2; break;
+  case  WEST: dy = -cellH/2; break;
   }
   line(px,
        py,
