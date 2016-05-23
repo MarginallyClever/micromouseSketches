@@ -122,28 +122,36 @@ int getCellNumberAt(int x,int y) {
 }
 
 
-boolean thereIsAWallToTheNorth() {  int c = getCurrentCellNumber();  int wi = findWallBetween(c, c+1      );  return (wi==-1 || !walls[wi].removed);  }
-boolean thereIsAWallToTheSouth() {  int c = getCurrentCellNumber();  int wi = findWallBetween(c, c-1      );  return (wi==-1 || !walls[wi].removed);  }
-boolean thereIsAWallToTheEast () {  int c = getCurrentCellNumber();  int wi = findWallBetween(c, c+columns);  return (wi==-1 || !walls[wi].removed);  }
-boolean thereIsAWallToTheWest () {  int c = getCurrentCellNumber();  int wi = findWallBetween(c, c-columns);  return (wi==-1 || !walls[wi].removed);  }
+// returns true if there is a wall between cells A and B.
+boolean thereIsAWallBetween(int a,int b) {
+  int wi = findWallBetween(a,b);
+  return (wi==-1 || !walls[wi].removed);
+}
+
+boolean thereIsAWallToTheNorth(int c) {  return thereIsAWallBetween(c, c+1      );  }
+boolean thereIsAWallToTheSouth(int c) {  return thereIsAWallBetween(c, c-1      );  }
+boolean thereIsAWallToTheEast (int c) {  return thereIsAWallBetween(c, c+columns);  }
+boolean thereIsAWallToTheWest (int c) {  return thereIsAWallBetween(c, c-columns);  }
 
 
 boolean thereIsAWallToTheRight() {
+  int c = getCurrentCellNumber();
   switch(turtle.dir) {
-    case NORTH: return thereIsAWallToTheEast();
-    case  EAST: return thereIsAWallToTheSouth();
-    case SOUTH: return thereIsAWallToTheWest();
-    default   : return thereIsAWallToTheNorth();
+    case NORTH: return thereIsAWallToTheEast (c);
+    case  EAST: return thereIsAWallToTheSouth(c);
+    case SOUTH: return thereIsAWallToTheWest (c);
+    default   : return thereIsAWallToTheNorth(c);
   }
 }
 
 
 boolean thereIsAWallAhead() {
+  int c = getCurrentCellNumber();
   switch(turtle.dir) {
-    case NORTH: return thereIsAWallToTheNorth();
-    case  EAST: return thereIsAWallToTheEast();
-    case SOUTH: return thereIsAWallToTheSouth();
-    default   : return thereIsAWallToTheWest();
+    case NORTH: return thereIsAWallToTheNorth(c);
+    case  EAST: return thereIsAWallToTheEast (c);
+    case SOUTH: return thereIsAWallToTheSouth(c);
+    default   : return thereIsAWallToTheWest (c);
   }
 }
 
@@ -161,25 +169,34 @@ void turnLeft() {
 
 
 void stepForward() {
-  print("Advancing ");
+  // Check that the square we want to move to is inside the maze.
+  int x = turtle.cellX;
+  int y = turtle.cellY;
   
   switch(turtle.dir) {
-  case NORTH:  print("north");   turtle.cellX++;  break;
-  case  EAST:  print("east");    turtle.cellY++;  break;
-  case SOUTH:  print("south");   turtle.cellX--;  break;
-  case  WEST:  print("west");    turtle.cellY--;  break;
+  case NORTH:  print("north");  ++x;  break;
+  case  EAST:  print("east" );  ++y;  break;
+  case SOUTH:  print("south");  --x;  break;
+  case  WEST:  print("west" );  --y;  break;
   }
 
-  if(turtle.cellX >= rows) turtle.cellX = rows-1;
-  if(turtle.cellX <  0   ) turtle.cellX = 0;
-  if(turtle.cellY >= columns) turtle.cellY = columns-1;
-  if(turtle.cellY <  0      ) turtle.cellY = 0;
+  if(x >= rows   ) x = rows-1;
+  if(x <  0      ) x = 0;
+  if(y >= columns) y = columns-1;
+  if(y <  0      ) y = 0;
 
-  print(" to (");
+  if(turtle.cellX == x && turtle.cellY == y ) {
+    return;
+  }
+  
+  turtle.cellX = x;
+  turtle.cellY = y;
+  
+  print("Advancing to (");
   print(turtle.cellX);
   print(',');
   print(turtle.cellY);
-  print(')');
+  print(").  ");
 }
 
 
