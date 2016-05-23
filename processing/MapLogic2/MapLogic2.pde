@@ -26,8 +26,8 @@ void draw() {
  */
 void keyPressed() {
   switch(turtleState) {
-  default: searchMaze();  break;
-  case 1: goHome();  break;
-  case 2: goToCenter();  break; 
+  case SEARCHING: searchMaze();  break;
+  case    GOHOME: goHome();      break;
+  case  GOCENTER: goToCenter();  break; 
   }
 }

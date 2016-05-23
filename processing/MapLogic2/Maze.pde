@@ -199,6 +199,13 @@ void drawMaze() {
       line(x0,y,x1,y);
     }
   }
+  
+  textAlign(CENTER, CENTER);
+  fill(255,255,0);
+  text("N", width - cellW/2, height/2        );
+  text("E", width/2        , height - cellH/2);
+  text("W", width/2        , cellH/2         );
+  text("S", cellW/2        , height/2        );
 }
 
 

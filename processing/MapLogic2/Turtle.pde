@@ -13,6 +13,9 @@ static final int EAST =1;
 static final int SOUTH=2;
 static final int WEST =3;
 
+static final int SEARCHING = 0;
+static final int GOHOME    = 1;
+static final int GOCENTER  = 2;
 
 Turtle turtle;
 Turtle [] history;
@@ -23,19 +26,21 @@ int walkCount;
 
 void setupTurtle() {
   turtle = new Turtle();
-  history = new Turtle[256];
-
+  turtleState = SEARCHING;
+  // start in bottom left corner
   turtle.cellX=0;
-  turtle.cellY=rows-1;
-  turtle.dir=3;
+  turtle.cellY=0;
+  turtle.dir=NORTH;
+
+  // longest path cannot be greater than number of cells in the maze.
+  history = new Turtle[columns * rows];
   int i;
   for(i=0;i<history.length;++i) {
     history[i] = new Turtle();
   }
   historyCount=0;
+
   addToHistory();
-  
-  turtleState=0;  // searching maze
 }
 
 
@@ -219,16 +224,21 @@ void searchMaze() {
     turnLeft();
   }
   println();
-  
+
+  // remove dead ends
   pruneHistory(getCurrentCellNumber());
   
-  if( ( turtle.cellX == (rows/2)-1 || turtle.cellX == (rows/2) ) &&
-      ( turtle.cellY == (columns/2)-1 || turtle.cellY == (columns/2) ) )
-  {
+  if( iAmInTheCenter() ) {
     println("** CENTER FOUND.  GOING HOME **");
-    turtleState=1;
+    turtleState = GOHOME;
     walkCount = historyCount;
   }
+}
+
+
+boolean iAmInTheCenter() {
+  return ( turtle.cellX == (rows   /2)-1 || turtle.cellX == (rows   /2) ) &&
+         ( turtle.cellY == (columns/2)-1 || turtle.cellY == (columns/2) );
 }
 
 
@@ -258,7 +268,7 @@ void goHome() {
   
   if(walkCount==0) {
     println("** HOME FOUND.  GOING TO CENTER **");
-    turtleState=2;
+    turtleState = GOCENTER;
     walkCount=1;
   }
 }
@@ -274,6 +284,6 @@ void goToCenter() {
   
   if(walkCount==historyCount) {
     println("** CENTER FOUND.  GOING HOME **");
-    turtleState=1;
+    turtleState = GOHOME;
   }
 }
