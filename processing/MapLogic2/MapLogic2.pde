@@ -1,3 +1,5 @@
+// Find the center of a maze, then roam back and forth along the shortest route forever.
+// Dan Royer (dan@marginallyclever.com) 2016-05-21
 
 class MazeCell {
   int x, y;
@@ -455,8 +457,8 @@ void searchMaze() {
   
   pruneHistory(getCurrentCellNumber());
   
-  if( ( turtle.cellX == 7 || turtle.cellX == 8 ) &&
-      ( turtle.cellY == 7 || turtle.cellY == 8 ) )
+  if( ( turtle.cellX == (rows/2)-1 || turtle.cellX == (rows/2)+1 ) &&
+      ( turtle.cellY == (columns/2)-1 || turtle.cellY == (columns/2)+1 ) )
   {
     println("** CENTER FOUND.  GOING HOME **");
     state=1;
