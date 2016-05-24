@@ -74,12 +74,49 @@
 #define DEGREES_BETWEEN_MAZE_CELLS     (DISTANCE_BETWEEN_MAZE_CELLS/DISTANCE_PER_DEGREE)
 
 
-// If one turns forward and one turns reverse at the same speed then the wheels 
-// will "draw" a circle.  I know the distance between wheels, so I know the 
+// If one turns forward and one turns reverse at the same speed then the wheels
+// will "draw" a circle.  I know the distance between wheels, so I know the
 // circle's circumference.
 #define WHEEL_BASE_CIRCUMFERENCE (WHEEL_BASE * PI)  // c = 2 * pi * r
 // 1/4 of the circumference is one 90 degree turn.
 #define DEGREES_FOR_ONE_TURN    ((WHEEL_BASE_CIRCUMFERENCE*0.25) / DISTANCE_PER_DEGREE)
+
+
+// high level maze solving
+#define NORTH 0
+#define EAST  1
+#define SOUTH 2
+#define WEST  3
+
+#define SEARCHING   0
+#define GOHOME      1
+#define GOCENTER    2
+
+// maze dimension, in cells.
+#define ROWS        16
+#define COLUMNS     16
+#define TOTAL_CELLS (ROWS*COLUMNS)
+
+//--------------------------------------------------------
+// structures
+//--------------------------------------------------------
+
+struct MazeCell {
+  int x, y;
+  boolean visited;
+  boolean onStack;
+};
+
+struct MazeWall {
+  int cellA, cellB;
+  boolean removed;
+};
+
+struct Turtle {
+  int cellX, cellY;
+  int dir;
+};
+
 
 
 //--------------------------------------------------------
@@ -96,15 +133,64 @@ float encoderL, encoderR;
 
 long t;
 
+// turtle logic
+Turtle turtle;
+Turtle *history;
+int historyCount;
+int turtleState;
+int walkCount;
+
+// maze memory
+MazeCell *cells;
+MazeWall *walls;
+
 
 //--------------------------------------------------------
 // methods
 //--------------------------------------------------------
 
+void createMaze() {
+  // build the cells
+  cells = new MazeCell[TOTAL_CELLS];
+
+  int x, y, i = 0;
+  for (y = 0; y < ROWS; ++y) {
+    for (x = 0; x < COLUMNS; ++x) {
+      cells[i].visited = false;
+      cells[i].onStack = false;
+      cells[i].x = x;
+      cells[i].y = y;
+      ++i;
+    }
+  }
+
+  // build the graph
+  walls = new MazeWall[((ROWS - 1) * COLUMNS) + ((COLUMNS - 1) * ROWS)];
+  i = 0;
+  for (y = 0; y < ROWS; ++y) {
+    for (x = 0; x < COLUMNS; ++x) {
+      if (x < COLUMNS - 1) {
+        // vertical wall between horizontal cells
+        walls[i].removed = false;
+        walls[i].cellA = y * COLUMNS + x;
+        walls[i].cellB = y * COLUMNS + x + 1;
+        ++i;
+      }
+      if (y < ROWS - 1) {
+        // horizontal wall between vertical cells
+        walls[i].removed = false;
+        walls[i].cellA = y * COLUMNS + x;
+        walls[i].cellB = y * COLUMNS + x + COLUMNS;
+        ++i;
+      }
+    }
+  }
+}
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(BAUD);
-  
+
   // prepare the wheels
   left.attach(L_SERVO);
   right.attach(R_SERVO);
@@ -118,7 +204,7 @@ void setup() {
   pinMode(SENSOR_R_CSEL ,  OUTPUT);
 
   fullStop();
-
+  
   // wait for the encoders to wake up
   do {
     delayBetweenSteps();
@@ -126,7 +212,81 @@ void setup() {
   } while (encoderL == 0 || encoderR == 0);
 
   Serial.println(F("Hello, World!  I am a micromouse."));
-  t = millis();
+
+  calibrateSensors();
+  waitForStartSignal();
+
+  // set up turtle
+  history = new Turtle[TOTAL_CELLS];
+  turtleState = SEARCHING;
+  // start in bottom left corner
+  turtle.cellX=0;
+  turtle.cellY=0;
+  turtle.dir=NORTH;
+  historyCount=0;
+  addToHistory();
+}
+
+
+void addToHistory() {
+  history[historyCount].cellX = turtle.cellX;
+  history[historyCount].cellY = turtle.cellY;
+  history[historyCount].dir = turtle.dir;
+  historyCount++;
+}
+
+
+// convert grid (x,y) to cell index number.
+int getCellNumberAt(int x,int y) {
+  return y * COLUMNS + x;
+}
+
+
+/**
+ * Remove dead ends from the calulcated shortest route.
+ * Do this by checking if we've been here before.
+ * If we have, remove everything in history between the last visit and now.
+ */
+void pruneHistory(int findCell) {
+  int i;
+  for(i = historyCount-2; i >= 0; --i) {
+    int cell = getCellNumberAt(history[i].cellX, history[i].cellY);
+    if(cell == findCell) {
+      historyCount = i+1;
+      return;
+    }
+  }
+}
+
+
+void waitForStartSignal() {
+  // TODO finish me
+  readDistanceSensors();
+  float a=distanceA;
+  float b=distanceB;
+  float c=distanceC;
+  float d=distanceD;
+
+  do {
+    delayBetweenSteps();
+    readDistanceSensors();
+    Serial.print(distanceA);  Serial.print("\t");
+    Serial.print(distanceB);  Serial.print("\t");
+    Serial.print(distanceC);  Serial.print("\t");
+    Serial.print(distanceD);  Serial.print("\n");
+  } while(1);
+}
+
+
+void calibrateSensors() {
+  waitForStartSignal();
+  
+  int i;
+  for(i=0;i<4;++i) {
+    delayBetweenSteps();
+    readDistanceSensors();
+    turnRight();
+  }
 }
 
 
@@ -152,15 +312,15 @@ void fullStop() {
 
 // Minimum time between distance sensor reads should be at least (16.5 +/- 3.7)ms.
 void delayBetweenSteps() {
-  while (millis() - t < DELAY_BETWEEN_STEPS);
   t = millis();
+  while (millis() - t < DELAY_BETWEEN_STEPS);
 }
 
 
-void turnRight90() {
-  Serial.print(F("Turning right.\n"));
+void turnRight() {
+  Serial.print(F("Turning right.  "));
 
-  while(!readEncoders());
+  while (!readEncoders());
   float destinationL = encoderL + DEGREES_FOR_ONE_TURN;
   float destinationR = encoderR - DEGREES_FOR_ONE_TURN;
   float lastL = encoderL;
@@ -174,7 +334,7 @@ void turnRight90() {
 
   do {
     delayBetweenSteps();
-    while(!readEncoders());
+    while (!readEncoders());
 
     // Find how far the wheels moved.  Watch for encoders
     // jumping from 0 to 359 and vice versa.
@@ -193,6 +353,7 @@ void turnRight90() {
     turnedL += dL;
     turnedR += dR;
 #if VERBOSE == 1
+    Serial.print('\n');
     Serial.print(encoderL);
     Serial.print('\t');
     Serial.print(encoderR);
@@ -223,17 +384,17 @@ void turnRight90() {
     driveSum += abs( driveTo );
 #if VERBOSE == 1
     Serial.print(driveTo);
-    Serial.print('\n');
+    Serial.print('\t');
 #endif
     stillTurning = (driveSum != 0);
   } while (stillTurning);
 }
 
 
-void turnLeft90() {
-  Serial.print(F("Turning left.\n"));
+void turnLeft() {
+  Serial.print(F("Turning left.  "));
 
-  while(!readEncoders());
+  while (!readEncoders());
   float destinationL = encoderL - DEGREES_FOR_ONE_TURN;
   float destinationR = encoderR + DEGREES_FOR_ONE_TURN;
   float lastL = encoderL;
@@ -247,7 +408,7 @@ void turnLeft90() {
 
   do {
     delayBetweenSteps();
-    while(!readEncoders());
+    while (!readEncoders());
 
     // Find how far the wheels moved.  Watch for encoders
     // jumping from 0 to 359 and vice versa.
@@ -266,6 +427,7 @@ void turnLeft90() {
     turnedL -= dL;
     turnedR -= dR;
 #if VERBOSE == 1
+    Serial.print('\n');
     Serial.print(encoderL);
     Serial.print('\t');
     Serial.print(encoderR);
@@ -296,7 +458,7 @@ void turnLeft90() {
     driveSum += abs( driveTo );
 #if VERBOSE == 1
     Serial.print(driveTo);
-    Serial.print('\n');
+    Serial.print('\t');
 #endif
     stillTurning = (driveSum != 0);
   } while (stillTurning);
@@ -304,29 +466,52 @@ void turnLeft90() {
 
 
 void loop() {
-  /*
-  delayBetweenSteps();
-  readDistanceSensors();
-  while(!readEncoders());
-  thinkAndAct();
-  reportToPC();
-  */
-
-  goForward();
-  turnLeft90();
-  turnRight90();
+  stepForward();
+  turnLeft();
+  turnLeft();
+  stepForward();
+  turnRight();
+  turnRight();
   fullStop();
-  
+
   int WAIT = 2000;
   t = millis();
   while (millis() - t < WAIT);
 }
 
 
-void goForward() {
-  Serial.print(F("Go forward.\n"));
+void stepForward() {
+  // Check that the square we want to move to is inside the maze.
+  int x = turtle.cellX;
+  int y = turtle.cellY;
+  
+  switch(turtle.dir) {
+  case NORTH:  Serial.print("north");  ++x;  break;
+  case  EAST:  Serial.print("east" );  ++y;  break;
+  case SOUTH:  Serial.print("south");  --x;  break;
+  case  WEST:  Serial.print("west" );  --y;  break;
+  }
 
-  while(!readEncoders());
+  if(x >= ROWS   ) x = ROWS-1;
+  if(x <  0      ) x = 0;
+  if(y >= COLUMNS) y = COLUMNS-1;
+  if(y <  0      ) y = 0;
+
+  if(turtle.cellX == x && turtle.cellY == y ) {
+    return;
+  }
+  
+  turtle.cellX = x;
+  turtle.cellY = y;
+  
+  Serial.print("Advancing to (");
+  Serial.print(turtle.cellX);
+  Serial.print(',');
+  Serial.print(turtle.cellY);
+  Serial.print(").  ");
+
+
+  while (!readEncoders());
   float destinationL = encoderL + DEGREES_BETWEEN_MAZE_CELLS;
   float destinationR = encoderR + DEGREES_BETWEEN_MAZE_CELLS;
   float lastL = encoderL;
@@ -340,7 +525,7 @@ void goForward() {
 
   do {
     delayBetweenSteps();
-    while(!readEncoders());
+    while (!readEncoders());
 
     // Find how far the wheels moved.  Watch for encoders
     // jumping from 0 to 359 and vice versa.
@@ -359,6 +544,7 @@ void goForward() {
     turnedL += dL;
     turnedR -= dR;
 #if VERBOSE == 1
+    Serial.print('\n');
     Serial.print(encoderL);
     Serial.print('\t');
     Serial.print(encoderR);
@@ -389,14 +575,20 @@ void goForward() {
     driveSum += abs( driveTo );
 #if VERBOSE == 1
     Serial.print(driveTo);
-    Serial.print('\n');
+    Serial.print('\t');
 #endif
     stillTurning = (driveSum != 0);
   } while (stillTurning);
 }
 
 
-void thinkAndAct() {}
+void thinkAndAct() {
+  switch(turtleState) {
+  case SEARCHING: searchMaze();  break;
+  case    GOHOME: goHome();      break;
+  case  GOCENTER: goToCenter();  break; 
+  }
+}
 
 
 void reportToPC() {
@@ -476,16 +668,16 @@ boolean readEncoder(int sdout, int csel, int clk, float &result) {
   // 0B000001 is the even/odd parity bit
 
   int angleI = (data & ANGLE_MASK) >> (STATUS_BITS + PARITY_BITS);
-/*
-  //Serial.print(angleI,BIN);
-  //Serial.print(' ');
-  // display the angle bits
-  for(int i=17;i>=0;--i) {
-    char x = (data & (1<<i)) !=0?'1':'0';
-    Serial.print(x);
-  }
-  Serial.print('\t');
-*/
+  /*
+    //Serial.print(angleI,BIN);
+    //Serial.print(' ');
+    // display the angle bits
+    for(int i=17;i>=0;--i) {
+      char x = (data & (1<<i)) !=0?'1':'0';
+      Serial.print(x);
+    }
+    Serial.print('\t');
+  */
   result = (float)angleI * ANGLE_SCALE;
   //Serial.print(result);
   //Serial.print("\t");
@@ -516,5 +708,143 @@ boolean readEncoderRaw(int sdout, int csel, int clk, long &data) {
   //Serial.print(data,BIN);
   //Serial.print('\t');
 
-  return ((parity%2) == c);
+  return ((parity % 2) == c);
+}
+
+
+/**
+ * Find the index of the wall between two cells
+ * returns -1 if no wall is found (asking the impossible)
+ */
+int findWallBetween(int currentCell, int nextCell) {
+  int i;
+  for (i = 0; i < TOTAL_CELLS; ++i) {
+    if (walls[i].cellA == currentCell || walls[i].cellA == nextCell) {
+      if (walls[i].cellB == currentCell || walls[i].cellB == nextCell)
+        return i;
+    }
+  }
+  return -1;
+}
+
+
+
+// returns true if there is a wall between cells A and B.
+boolean thereIsAWallBetween(int a,int b) {
+  int wi = findWallBetween(a,b);
+  return (wi==-1 || !walls[wi].removed);
+}
+
+
+boolean thereIsAWallToTheNorth(int c) {  return thereIsAWallBetween(c, c+1      );  }
+boolean thereIsAWallToTheSouth(int c) {  return thereIsAWallBetween(c, c-1      );  }
+boolean thereIsAWallToTheEast (int c) {  return thereIsAWallBetween(c, c+COLUMNS);  }
+boolean thereIsAWallToTheWest (int c) {  return thereIsAWallBetween(c, c-COLUMNS);  }
+
+
+boolean thereIsAWallToTheRight() {
+  int c = getCurrentCellNumber();
+  switch(turtle.dir) {
+    case NORTH: return thereIsAWallToTheEast (c);
+    case  EAST: return thereIsAWallToTheSouth(c);
+    case SOUTH: return thereIsAWallToTheWest (c);
+    default   : return thereIsAWallToTheNorth(c);
+  }
+}
+
+
+boolean thereIsAWallAhead() {
+  int c = getCurrentCellNumber();
+  switch(turtle.dir) {
+    case NORTH: return thereIsAWallToTheNorth(c);
+    case  EAST: return thereIsAWallToTheEast (c);
+    case SOUTH: return thereIsAWallToTheSouth(c);
+    default   : return thereIsAWallToTheWest (c);
+  }
+}
+
+
+// One step in the maze search.
+void searchMaze() {
+  if(!thereIsAWallToTheRight()) {
+    Serial.print("No wall on the right.  ");
+    turnRight();
+  }
+    
+  if(!thereIsAWallAhead()) {
+    Serial.print("No wall ahead.  ");
+    stepForward();
+    addToHistory();
+  } else {
+    Serial.print("Wall ahead.  ");
+    turnLeft();
+  }
+  Serial.println();
+
+  // remove dead ends
+  pruneHistory(getCurrentCellNumber());
+  
+  if( iAmInTheCenter() ) {
+    Serial.println("** CENTER FOUND.  GOING HOME **");
+    turtleState = GOHOME;
+    walkCount = historyCount;
+  }
+}
+
+
+// One step towards home along the known shortest route.
+void goHome() {
+  walkCount--;
+  turnToFace((history[walkCount].dir+2)%4);  // face the opposite of the history
+  stepForward();
+  Serial.println();
+  
+  if(walkCount==0) {
+    Serial.println("** HOME FOUND.  GOING TO CENTER **");
+    turtleState = GOCENTER;
+    walkCount=1;
+  }
+}
+
+
+void turnToFace(int dir) {
+  if(dir == turtle.dir) {
+    // facing that way already
+    return;
+  }
+
+  if(dir == turtle.dir+2 || dir == turtle.dir-2 ) {
+    // 180
+    turnRight();
+    turnRight();
+    return;
+  }
+  if(dir == (turtle.dir+4-1)%4) turnLeft();
+  if(dir == (turtle.dir  +1)%4) turnRight();
+}
+
+
+// One step towards center along the known shortest route.
+void goToCenter() {
+  turnToFace(history[walkCount].dir);  // face the opposite of the history
+  stepForward();
+  Serial.println();
+
+  walkCount++;
+  
+  if(walkCount==historyCount) {
+    Serial.println("** CENTER FOUND.  GOING HOME **");
+    turtleState = GOHOME;
+  }
+}
+
+
+boolean iAmInTheCenter() {
+  return ( turtle.cellX == (ROWS   /2)-1 || turtle.cellX == (ROWS   /2) ) &&
+         ( turtle.cellY == (COLUMNS/2)-1 || turtle.cellY == (COLUMNS/2) );
+}
+
+
+int getCurrentCellNumber() {
+  return getCellNumberAt( turtle.cellX, turtle.cellY );
 }

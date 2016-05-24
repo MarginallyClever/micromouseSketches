@@ -128,6 +128,7 @@ boolean thereIsAWallBetween(int a,int b) {
   return (wi==-1 || !walls[wi].removed);
 }
 
+
 boolean thereIsAWallToTheNorth(int c) {  return thereIsAWallBetween(c, c+1      );  }
 boolean thereIsAWallToTheSouth(int c) {  return thereIsAWallBetween(c, c-1      );  }
 boolean thereIsAWallToTheEast (int c) {  return thereIsAWallBetween(c, c+columns);  }
