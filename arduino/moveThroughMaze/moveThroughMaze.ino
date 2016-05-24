@@ -14,11 +14,14 @@
 // constants
 //--------------------------------------------------------
 
+// set to 1 to get more details
+#define VERBOSE 0
+
 // serial speed
 #define BAUD           57600
 
 // arduino pins - duemilanove supports PWM on pins 3, 5, 6, 9, 10, and 11.
-#define L_SERVO        3
+#define L_SERVO        2
 #define R_SERVO        11
 
 // where are encoders attached?
@@ -101,7 +104,6 @@ long t;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(BAUD);
-  Serial.println("angle=");
   
   // prepare the wheels
   left.attach(L_SERVO);
@@ -130,13 +132,13 @@ void setup() {
 
 // vel = [-90...90].  90 is full speed forward
 void driveLeftWheel(float vel) {
-  left.write(LEFT_STOP + vel);
+  left.write(LEFT_STOP - vel);
   readEncoders();
 }
 
 // vel = [-90...90].  90 is full speed forward
 void driveRightWheel(float vel) {
-  right.write(RIGHT_STOP - vel);
+  right.write(RIGHT_STOP + vel);
   readEncoders();
 }
 
@@ -157,9 +159,8 @@ void delayBetweenSteps() {
 
 void turnRight90() {
   Serial.print(F("Turning right.\n"));
-  Serial.println(DEGREES_FOR_ONE_TURN);
 
-  readEncoders();
+  while(!readEncoders());
   float destinationL = encoderL + DEGREES_FOR_ONE_TURN;
   float destinationR = encoderR - DEGREES_FOR_ONE_TURN;
   float lastL = encoderL;
@@ -173,7 +174,7 @@ void turnRight90() {
 
   do {
     delayBetweenSteps();
-    readEncoders();
+    while(!readEncoders());
 
     // Find how far the wheels moved.  Watch for encoders
     // jumping from 0 to 359 and vice versa.
@@ -191,7 +192,7 @@ void turnRight90() {
     lastR = encoderR;
     turnedL += dL;
     turnedR += dR;
-
+#if VERBOSE == 1
     Serial.print(encoderL);
     Serial.print('\t');
     Serial.print(encoderR);
@@ -204,49 +205,198 @@ void turnRight90() {
     Serial.print('\t');
     Serial.print(turnedR);
     Serial.print('\t');
+#endif
 
-    
-    driveTo = ( turnedL < DEGREES_FOR_ONE_TURN ) ? 90 : 0;
+    // drive the left wheel
+    driveTo = ( turnedL <  DEGREES_FOR_ONE_TURN ) ? max( DEGREES_FOR_ONE_TURN - turnedL, 4 ) : 0;
+    driveTo = min( driveTo, 90 );
     driveLeftWheel( driveTo );
     driveSum = abs( driveTo );
+#if VERBOSE == 1
     Serial.print(driveTo);
     Serial.print('\t');
-
-    driveTo = ( turnedR > -DEGREES_FOR_ONE_TURN ) ? -90 : 0;
-    driveRightWheel( driveTo );
+#endif
+    // drive the right wheel
+    driveTo = ( turnedR < DEGREES_FOR_ONE_TURN ) ? max( DEGREES_FOR_ONE_TURN - turnedR, 4 ) : 0;
+    driveTo = min( driveTo, 90 );
+    driveRightWheel( -driveTo );
     driveSum += abs( driveTo );
+#if VERBOSE == 1
     Serial.print(driveTo);
     Serial.print('\n');
-
+#endif
     stillTurning = (driveSum != 0);
   } while (stillTurning);
 }
 
+
+void turnLeft90() {
+  Serial.print(F("Turning left.\n"));
+
+  while(!readEncoders());
+  float destinationL = encoderL - DEGREES_FOR_ONE_TURN;
+  float destinationR = encoderR + DEGREES_FOR_ONE_TURN;
+  float lastL = encoderL;
+  float lastR = encoderR;
+  float turnedL = 0;
+  float turnedR = 0;
+
+  boolean stillTurning = true;
+  int driveTo, driveSum;
+  float dL, dR;
+
+  do {
+    delayBetweenSteps();
+    while(!readEncoders());
+
+    // Find how far the wheels moved.  Watch for encoders
+    // jumping from 0 to 359 and vice versa.
+    dL = encoderL - lastL;
+    dR = encoderR - lastR;
+    if (abs(dL) > 180) {
+      if ( lastL <  90 && encoderL > 270 ) dL = encoderL - (lastL + 360);
+      if ( lastL > 270 && encoderL <  90 ) dL = (encoderL + 360) - lastL;
+    }
+    if (abs(dR) > 180) {
+      if ( lastR <  90 && encoderR > 270 ) dR = encoderR - (lastR + 360);
+      if ( lastR > 270 && encoderR <  90 ) dR = (encoderR + 360) - lastR;
+    }
+    lastL = encoderL;
+    lastR = encoderR;
+    turnedL -= dL;
+    turnedR -= dR;
+#if VERBOSE == 1
+    Serial.print(encoderL);
+    Serial.print('\t');
+    Serial.print(encoderR);
+    Serial.print('\t');
+    Serial.print(dL);
+    Serial.print('\t');
+    Serial.print(dR);
+    Serial.print('\t');
+    Serial.print(turnedL);
+    Serial.print('\t');
+    Serial.print(turnedR);
+    Serial.print('\t');
+#endif
+
+    // drive the left wheel
+    driveTo = ( turnedL <  DEGREES_FOR_ONE_TURN ) ? max( DEGREES_FOR_ONE_TURN - turnedL, 4 ) : 0;
+    driveTo = min( driveTo, 90 );
+    driveLeftWheel( -driveTo );
+    driveSum = abs( driveTo );
+#if VERBOSE == 1
+    Serial.print(driveTo);
+    Serial.print('\t');
+#endif
+    // drive the right wheel
+    driveTo = ( turnedR < DEGREES_FOR_ONE_TURN ) ? max( DEGREES_FOR_ONE_TURN - turnedR, 4 ) : 0;
+    driveTo = min( driveTo, 90 );
+    driveRightWheel( driveTo );
+    driveSum += abs( driveTo );
+#if VERBOSE == 1
+    Serial.print(driveTo);
+    Serial.print('\n');
+#endif
+    stillTurning = (driveSum != 0);
+  } while (stillTurning);
+}
+
+
 void loop() {
   /*
-    delayBetweenSteps();
+  delayBetweenSteps();
+  readDistanceSensors();
+  while(!readEncoders());
+  thinkAndAct();
+  reportToPC();
+  */
 
-    readDistanceSensors();
-    if( readEncoders() ) {
-      thinkAndAct();
-      reportToPC();
-    }*/
-  //turnRight90();
-
+  goForward();
+  turnLeft90();
+  turnRight90();
+  fullStop();
+  
   int WAIT = 2000;
-  //  goForward();    t=millis();  while(millis()-t<WAIT);
-  //  turnLeft90();   t=millis();  while(millis()-t<WAIT);
-  turnRight90();  t = millis();  while (millis() - t < WAIT);
-  fullStop();     t = millis();  while (millis() - t < WAIT);
+  t = millis();
+  while (millis() - t < WAIT);
 }
 
 
-void thinkAndAct() {
-  // Move wheels
-  int driveTo;
-  driveTo = ( encoderL - 180 ) / 2;  left .write( 90 + driveTo );
-  driveTo = ( encoderR - 180 ) / 2;  right.write( 90 + driveTo );
+void goForward() {
+  Serial.print(F("Go forward.\n"));
+
+  while(!readEncoders());
+  float destinationL = encoderL + DEGREES_BETWEEN_MAZE_CELLS;
+  float destinationR = encoderR + DEGREES_BETWEEN_MAZE_CELLS;
+  float lastL = encoderL;
+  float lastR = encoderR;
+  float turnedL = 0;
+  float turnedR = 0;
+
+  boolean stillTurning = true;
+  int driveTo, driveSum;
+  float dL, dR;
+
+  do {
+    delayBetweenSteps();
+    while(!readEncoders());
+
+    // Find how far the wheels moved.  Watch for encoders
+    // jumping from 0 to 359 and vice versa.
+    dL = encoderL - lastL;
+    dR = encoderR - lastR;
+    if (abs(dL) > 180) {
+      if ( lastL <  90 && encoderL > 270 ) dL = encoderL - (lastL + 360);
+      if ( lastL > 270 && encoderL <  90 ) dL = (encoderL + 360) - lastL;
+    }
+    if (abs(dR) > 180) {
+      if ( lastR <  90 && encoderR > 270 ) dR = encoderR - (lastR + 360);
+      if ( lastR > 270 && encoderR <  90 ) dR = (encoderR + 360) - lastR;
+    }
+    lastL = encoderL;
+    lastR = encoderR;
+    turnedL += dL;
+    turnedR -= dR;
+#if VERBOSE == 1
+    Serial.print(encoderL);
+    Serial.print('\t');
+    Serial.print(encoderR);
+    Serial.print('\t');
+    Serial.print(dL);
+    Serial.print('\t');
+    Serial.print(dR);
+    Serial.print('\t');
+    Serial.print(turnedL);
+    Serial.print('\t');
+    Serial.print(turnedR);
+    Serial.print('\t');
+#endif
+
+    // drive the left wheel
+    driveTo = ( turnedL <  DEGREES_BETWEEN_MAZE_CELLS ) ? max( DEGREES_BETWEEN_MAZE_CELLS - turnedL, 4 ) : 0;
+    driveTo = min( driveTo, 90 );
+    driveLeftWheel( driveTo );
+    driveSum = abs( driveTo );
+#if VERBOSE == 1
+    Serial.print(driveTo);
+    Serial.print('\t');
+#endif
+    // drive the right wheel
+    driveTo = ( turnedR < DEGREES_BETWEEN_MAZE_CELLS ) ? max( DEGREES_BETWEEN_MAZE_CELLS - turnedR, 4 ) : 0;
+    driveTo = min( driveTo, 90 );
+    driveRightWheel( driveTo );
+    driveSum += abs( driveTo );
+#if VERBOSE == 1
+    Serial.print(driveTo);
+    Serial.print('\n');
+#endif
+    stillTurning = (driveSum != 0);
+  } while (stillTurning);
 }
+
+
+void thinkAndAct() {}
 
 
 void reportToPC() {
