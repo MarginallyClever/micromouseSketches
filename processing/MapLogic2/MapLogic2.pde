@@ -14,7 +14,6 @@ void setup () {
 
 void draw() {
   background(0);  // erase window
-
   drawTurtle();
   drawMaze();
 }
