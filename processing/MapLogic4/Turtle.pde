@@ -43,7 +43,6 @@ class Turtle {
   int turtleState;
   int walkCount;
 
-  float intersectX,intersectY;
 
   float distanceA;
   float distanceB;
