@@ -187,14 +187,28 @@ void createMaze() {
   }
 }
 
+
 void setup() {
-  // put your setup code here, to run once:
+  // setup communications
   Serial.begin(BAUD);
 
-  // prepare the wheels
+  setupWheels();
+  setupEncoders();
+
+  Serial.println(F("Hello, World!  I am a micromouse."));
+  calibrateSensors();
+  waitForStartSignal();
+  setupTurtle();
+}
+
+void setupWheels() {
   left.attach(L_SERVO);
   right.attach(R_SERVO);
+  fullStop();
+}
 
+
+void setupEncoders() {
   pinMode(SENSOR_L_SDOUT,  INPUT );
   pinMode(SENSOR_L_CLK  ,  OUTPUT);
   pinMode(SENSOR_L_CSEL ,  OUTPUT);
@@ -203,20 +217,14 @@ void setup() {
   pinMode(SENSOR_R_CLK  ,  OUTPUT);
   pinMode(SENSOR_R_CSEL ,  OUTPUT);
 
-  fullStop();
-  
   // wait for the encoders to wake up
   do {
     delayBetweenSteps();
     readEncoders();
   } while (encoderL == 0 || encoderR == 0);
+}
 
-  Serial.println(F("Hello, World!  I am a micromouse."));
-
-  calibrateSensors();
-  waitForStartSignal();
-
-  // set up turtle
+void setupTurtle() {
   history = new Turtle[TOTAL_CELLS];
   turtleState = SEARCHING;
   // start in bottom left corner
@@ -613,6 +621,38 @@ boolean readEncoders() {
     ok = false;
   }
   return ok;
+}
+
+
+// https://www.pololu.com/file/0J845/GP2Y0A41SK0F.pdf.pdf, page 4
+// volts  dist    analog read
+// 2.45v =  1cm = 501
+// 2.10v =  2cm = 430
+// 1.08v =  5cm = 221
+// 0.60v = 10cm = 122
+// 0.40v = 15cm = 81
+// 0.30v = 20cm = 61
+// https://www.arduino.cc/en/Reference/Map shows that map()
+// is only long to long, no floats allowed.
+int analogToDistance(int rawSensorReading,float &result) {
+  if( rawSensorReadings > 500 ) {
+    // out of range
+    return -1;
+  } else if( rawSensorReading > 430 ) {
+    result = (float)map(rawSensorReading,430,501, 2*100, 1*100)/100.0;
+  } else if( rawSensorReading > 221 ) {
+    result = (float)map(rawSensorReading,221,430, 5*100, 2*100)/100.0;
+  } else if( rawSensorReading > 122 ) {
+    result = (float)map(rawSensorReading,122,221,10*100, 5*100)/100.0;
+  } else if( rawSensorReading > 81 ) {
+    result = (float)map(rawSensorReading, 81,122,15*100,10*100)/100.0;
+  } else if( rawSensorReading > 61 ) {
+    result = (float)map(rawSensorReading, 61, 81,20*100,15*100)/100.0;
+  } else {
+    // out of range
+    return 1;
+  }
+  return 0;
 }
 
 
