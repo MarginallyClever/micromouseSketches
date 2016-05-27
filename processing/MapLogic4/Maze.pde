@@ -157,8 +157,9 @@ class Maze {
     int cellsOnStack = 0;
   
     // Make the initial cell the current cell and mark it as visited
-    int currentCell = 0;
-    cells[currentCell].visited = true;
+    int currentCell = 1;
+    cells[0].visited = true;
+    walls[0].removed = true;
     --unvisitedCells;
     
     int wallIndex;
@@ -194,6 +195,11 @@ class Maze {
       }
     }
   
+    int i;
+    for(i=0;i<cells.length;++i) {
+      cells[i].visited=false;
+    }
+    
     // remove the walls between the four center squares
     int x = (COLUMNS/2)-1;
     int y = (ROWS/2)-1;
@@ -260,6 +266,16 @@ class Maze {
            walls[i].y2);
     }
     strokeWeight(1);
+    
+    noStroke();
+    fill(255,255,255,64);
+    for(i=0;i<cells.length;++i) {
+      if(cells[i].visited) continue;
+      
+      float ax = cells[i].x * cellW;
+      float ay = cells[i].y * cellH;
+      rect(ax,ay,cellW,cellH);  
+    }
     
     // draw compass
     textAlign(CENTER, CENTER);
