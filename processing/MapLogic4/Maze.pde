@@ -157,7 +157,7 @@ class Maze {
     int cellsOnStack = 0;
   
     // Make the initial cell the current cell and mark it as visited
-    int currentCell = 1;
+    int currentCell = cells.length-1;
     cells[0].visited = true;
     walls[0].removed = true;
     --unvisitedCells;

@@ -10,7 +10,7 @@ boolean paused;
 void setup () {
   // set the window size
   size(288, 288);  // 288 = 18x16, the number of cells by the cell size.
-  frameRate(30);
+  frameRate(240);
   paused=false;
   step=false;
 

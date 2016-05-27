@@ -445,12 +445,16 @@ class Turtle {
     readSensors();
 
     boolean proximityAlarm =
-      distanceB < FRONT_SENSORS_TO_IDEAL_FRONT_WALL ||
+      distanceB < FRONT_SENSORS_TO_IDEAL_FRONT_WALL &&
       distanceC < FRONT_SENSORS_TO_IDEAL_FRONT_WALL;
 
     switch(goal) {
       default: {  // drive forward until a wall it found
         if( proximityAlarm ) {
+          if( abs(distanceB - distanceC) > 0.25) {
+            if( distanceB < distanceC ) turnABitLeft();
+            else                        turnABitRight();
+          }
           // decide which way to turn
           if( thereIsAWallToTheRight() ) {
             goal=2;
@@ -500,7 +504,7 @@ class Turtle {
     if(goal==0) {
       goalCounter+=sqrt(dx*dx + dy*dy);
       if( goalCounter > CELL_SIZE ) {
-        paused=true;
+        //paused=true;
         if( !thereIsAWallToTheRight() ) {
           print("No wall on the right.\n");
           goal=1;
@@ -535,201 +539,11 @@ class Turtle {
       println("** CENTER FOUND.  GOING HOME **");
       turtleState = GOHOME;
       walkCount = historyCount;
+      goal = 2;
+      goalCounter = 0;
     }
   }
   
-  
-  
-  // One step in the maze search.
-  void searchMaze0() {
-    accelerate(0.05);
-
-    readSensors();
-    switch(goal) {
-      default:  // drive forward
-      {
-        // is there a wall ahead?
-        if(distanceB < FRONT_SENSORS_TO_IDEAL_FRONT_WALL &&
-           distanceC < FRONT_SENSORS_TO_IDEAL_FRONT_WALL )
-        {
-          print("There is a wall ahead!  Turning 90 left.  ");
-          if(distanceA < IDEAL_SENSOR_DISTANCE*3) {
-            // there is a right hand wall.  turn left.
-            fullStop();
-            goal = 1;
-            goalCounter = angle;
-            paused=true;
-          } else {
-            fullStop();
-            goal = 3;
-            goalCounter = angle;
-            paused=true;
-          }
-        } else {
-          boolean iSeeSomethingToTheRight = distanceA < IDEAL_SENSOR_DISTANCE*3;
-          
-          // is there a right hand wall to follow?
-          if( iSeeSomethingToTheRight ) {
-            // steer down the center of the hall.
-            float dA= IDEAL_SENSOR_DISTANCE - distanceA;
-            if(abs(dA)>0.2) {  // mm
-              //decelerate(0.05);
-              //print("Steering ");
-              //print(dA);
-              //print("...  ");
-              if(dA<0) turnABitRight();
-              else     turnABitLeft();
-            } else {
-              //print("Walking...  ");
-            }
-          } else {  // no wall on the right.
-            int cellRight = getCellToTheRight();
-            boolean cellToTheRightVisited;
-            if(cellRight>=0) cellToTheRightVisited = mentalMaze.cells[cellRight].visited;
-            else             cellToTheRightVisited = false; 
-            if( !cellToTheRightVisited ) {
-              print("Unvisited right.  ");
-              if(goalCounter < CELL_SIZE*0.25) {
-                // I haven't moved far, I'm probably in the center of a cell.
-                print("There's nothing on the right.  ");
-                //print(distanceA);
-                //print(" vs ");
-                //print(IDEAL_SENSOR_DISTANCE*3);
-                //print(".  ");
-                fullStop();
-                goal = 3;
-                goalCounter = angle;
-                paused=true;
-              } else {
-                // I drove more than half a cell.  Probably at the border between cells.
-                print("No more wall on the right.  Advancing to center... ");
-                goal = 2;
-                goalCounter=0;
-                paused=true;
-              }
-            } else {
-              print("Visited right.  ");
-              // can I use the left wall to steer?
-              boolean iSeeSomethingToTheLeft = distanceD < IDEAL_SENSOR_DISTANCE*3;
-              
-              // is there a right hand wall to follow?
-              if( iSeeSomethingToTheLeft ) {
-                // steer down the center of the hall.
-                float dD= IDEAL_SENSOR_DISTANCE - distanceD;
-                if(abs(dD)>0.2) {  // mm
-                  //decelerate(0.05);
-                  //print("Steering ");
-                  //print(dA);
-                  //print("...  ");
-                  if(dD<0) turnABitLeft();
-                  else     turnABitRight();
-                } else {
-                  //print("Walking...  ");
-                }
-              } else {
-                // no wall ahead, left, or right.  Straight ahead!
-              }
-            }
-          }
-        }
-      }
-      break;
-      case 1: // turn left
-      {
-        fullStop();
-        turnABitLeft();
-        float a = angle;
-        if(goalCounter < 100 && angle>300) a=angle-360;
-        if(abs(a-goalCounter)>=90) {
-          // turn complete
-          readSensors();
-          if(distanceB < FRONT_SENSORS_TO_IDEAL_FRONT_WALL &&
-             distanceC < FRONT_SENSORS_TO_IDEAL_FRONT_WALL ) 
-          {
-            print("There is ANOTHER wall ahead!  Turning 90 left.  ");
-            goalCounter=angle;
-          } else {
-            print("Drive Forward 1...");
-            goal=0;
-            goalCounter=0;
-            paused=true;
-          }
-        }
-      }
-      break;
-      case 2:  break;  // advance, turn right, advance. 
-      case 3:  // turn right
-      {
-        fullStop();
-        turnABitRight();
-        float a = angle;
-        if(goalCounter >260 && angle<100) a+=360;
-        if(abs(a-goalCounter)>=90) {
-          // turn complete
-          print("Advancing to next cell 3...");
-          //print(a);
-          //print(" vs ");
-          //print(goalCounter);
-          //print(".  ");
-          
-          goal = 4;
-          goalCounter = 0;
-          //paused=true;
-        }
-      }
-      break;
-      case 4: break;
-    }
-    
-    // Advance
-    float dx=cos(radians(angle))*speed;
-    float dy=sin(radians(angle))*speed;
-    px+=dx;
-    py+=dy;
-    
-    readSensors();
-    boolean proximityAlarm =
-      distanceB < FRONT_SENSORS_TO_IDEAL_FRONT_WALL ||
-      distanceC < FRONT_SENSORS_TO_IDEAL_FRONT_WALL;
-
-    if( goal==0 || goal==2 || goal==4) {
-      // count how far forward we've moved.
-      float d = sqrt( dx*dx + dy*dy );
-      goalCounter+=d;
-      if( goal==0 && goalCounter >= CELL_SIZE ) {
-        goalCounter=0;
-        //paused=true;
-      } else if( goal==2 && (proximityAlarm || goalCounter >= CELL_SIZE * 0.6) ) {
-        print("turning 90 right...");
-        goal=3;
-        goalCounter=angle;
-        //paused=true;
-      } else if( goal==4 && (proximityAlarm || goalCounter >= CELL_SIZE) ) {
-        print("Drive Forward 4...");
-        goal=0;
-        goalCounter=0;
-        paused=true;
-      }
-    }
-    
-    int x = floor(px / cellW);
-    int y = floor(py / cellH);
-    if( x!=cellX || y!=cellY ) {
-      cellX = x;
-      cellY = y;
-      dir = floor( (angle+45) / 90 ) % 4;
-      addToHistory();
-    }
-  
-    // remove dead ends
-    pruneHistory(getCurrentCellNumber());
-    
-    if( iAmInTheCenter() ) {
-      println("** CENTER FOUND.  GOING HOME **");
-      turtleState = GOHOME;
-      walkCount = historyCount;
-    }
-  }
   
   void addToHistory() {
     history[historyCount].cellX = cellX;
@@ -776,6 +590,8 @@ class Turtle {
   void turnToFace(int newDir) {
     if(dir == newDir) {
       // facing that way already
+      goal = 1;
+      goalCounter = 0;
       return;
     }
   
@@ -785,37 +601,105 @@ class Turtle {
       turnRight();
       return;
     }
-    if(newDir == (dir+4-1)%4) turnLeft();
-    if(newDir == (dir  +1)%4) turnRight();
+    if(newDir == (dir+4-1)%4) {
+      turnLeft();
+    }
+    if(newDir == (dir  +1)%4) {
+      turnRight();
+    }
+  }
+  
+  
+  void stepForward() {
+    accelerate(0.05);
+    readSensors();
+
+    boolean proximityAlarm =
+      distanceB < FRONT_SENSORS_TO_IDEAL_FRONT_WALL &&
+      distanceC < FRONT_SENSORS_TO_IDEAL_FRONT_WALL;
+
+    if( proximityAlarm ) {
+      if( abs(distanceB - distanceC) > 0.25) {
+        if( distanceB < distanceC ) turnABitLeft();
+        else                        turnABitRight();
+      }
+      print("Next 1.  ");
+      goal = 2;
+      return;
+    } else {
+      if( distanceA < IDEAL_SENSOR_DISTANCE ) turnABitLeft();
+      if( distanceD < IDEAL_SENSOR_DISTANCE ) turnABitRight();
+    }
+        
+    // Advance
+    float dx=cos(radians(angle))*speed;
+    float dy=sin(radians(angle))*speed;
+    px+=dx;
+    py+=dy;
+
+    goalCounter+=sqrt(dx*dx + dy*dy);
+    if( goalCounter > CELL_SIZE ) {
+      print("Next 2.  ");
+      goal = 2;
+    }
+
+    int x = floor(px / cellW);
+    int y = floor(py / cellH);
+    if( x!=cellX || y!=cellY ) {
+      cellX = x;
+      cellY = y;
+      dir = floor( (angle+45) / 90 ) % 4;
+    }
   }
   
   
   // One step towards home along the known shortest route.
-  void goHome() {/*
-    walkCount--;
-    turnToFace((history[walkCount].dir+2)%4);  // face the opposite of the history
-    stepForward();
-    println();
-    
-    if(walkCount==0) {
-      println("** HOME FOUND.  GOING TO CENTER **");
-      turtleState = GOCENTER;
-      walkCount=1;
-    }*/
+  void goHome() {
+    switch(goal) {
+    default:
+      turnToFace((history[walkCount].dir+2)%4);  // face the opposite of the history
+      break;
+    case 1:   
+      stepForward();
+      break;
+    case 2:
+      walkCount--;
+      if(walkCount==0) {
+        println("** HOME FOUND.  GOING TO CENTER **");
+        turtleState = GOCENTER;
+        walkCount=1;
+        goal = 0;
+        goalCounter = 0;
+      } else {
+        goal = 0;
+        goalCounter = angle;
+      }
+      break;
+    }
   }
   
   
   // One step towards center along the known shortest route.
-  void goToCenter() {/*
-    turnToFace(history[walkCount].dir);  // face the opposite of the history
-    stepForward();
-    println();
-  
-    walkCount++;
-    
-    if(walkCount==historyCount) {
-      println("** CENTER FOUND.  GOING HOME **");
-      turtleState = GOHOME;
-    }*/
+  void goToCenter() {
+    switch(goal) {
+    default:
+      turnToFace((history[walkCount].dir)%4);  // face the opposite of the history
+      break;
+    case 1:   
+      stepForward();
+      break;
+    case 2:
+      walkCount++;
+      if(walkCount==historyCount) {
+        println("** CENTER FOUND.  GOING HOME **");
+        turtleState = GOHOME;
+        goal = 2;
+        goalCounter = 0;
+      } else {
+        goal = 0;
+        goalCounter = angle;
+      }
+      break;
+    }
   }
 }
